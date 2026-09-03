@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="Identity/Identity.csproj" Id="b5b87a4a-6775-4495-97e8-109c76c9cb10" />
+  <Project Path="SubscriptionAPI/SubscriptionAPI.csproj" Id="2ca59d15-aacd-4098-9938-987b15a72484" />
+</Solution>

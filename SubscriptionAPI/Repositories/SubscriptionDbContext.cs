@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SubscriptionAPI.Models;
+using SubscriptionAPI.Models.Components;
 
 namespace SubscriptionAPI.Repositories
 {
@@ -15,7 +16,7 @@ namespace SubscriptionAPI.Repositories
             base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<Subscription>()
                 .HasIndex(sub => new { sub.PlanId, sub.UserId })
-                .IsUnique()
+                .IsUnique() 
                 .HasDatabaseName("IX_User_Id_Plan_Id_Unique");
         }
 
@@ -25,7 +26,7 @@ namespace SubscriptionAPI.Repositories
             {
                 if(entry.State == EntityState.Added)
                 {
-                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                    entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
                 }
             }
             return base.SaveChangesAsync(cancellationToken);

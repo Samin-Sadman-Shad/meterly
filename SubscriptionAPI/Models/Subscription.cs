@@ -1,4 +1,5 @@
 ﻿using Identity.Model;
+using SubscriptionAPI.Models.Components;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SubscriptionAPI.Models

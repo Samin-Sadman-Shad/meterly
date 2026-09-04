@@ -1,5 +1,6 @@
 ﻿using Identity.Model;
 using SubscriptionAPI.Models.Components;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SubscriptionAPI.Models
 {
@@ -8,6 +9,8 @@ namespace SubscriptionAPI.Models
         public required string Title { get; set; }
         public required string Subtitle { get; set; }
 
+        public Guid PriceCardId { get; set; }
+        [ForeignKey(nameof(PriceCardId))]
         public required PriceCard PriceCard { get; set; }
 
         public bool IsEnabled { get; set; }

@@ -1,15 +1,11 @@
-﻿namespace SubscriptionAPI.Models.Components
+﻿namespace SubscriptionAPI.DTOs.PriceCardDTOs
 {
-    public class PriceCard
+    public class CreatePriceCardDto
     {
-        public Guid Id { get; set; }
-
         public required string PriceCardTitle { get; set; }
         public double Price { get; set; }
         public required string PriceDescription { get; set; }
 
         public List<string> Features { get; set; } = new List<string>();
-
-        public Plan? Plan { get; set; }
     }
 }

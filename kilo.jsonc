@@ -1,0 +1,16 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  // Custom Slash Commands (Workflows) configuration
+  "commands": [
+    {
+      "name": "dto-validation",
+      "description": "Validates a DTO (Data Transfer Object) based on predefined rules",
+      // Points to your markdown workflow blueprint
+      "prompt_file": ".kilo/commands/dto-validation.md"
+    },
+    {
+      "name": "create-repository-from-entity",
+      "prompt_file": ".kilo/commands/create-repository-from-entity.md"
+    }
+  ]
+}

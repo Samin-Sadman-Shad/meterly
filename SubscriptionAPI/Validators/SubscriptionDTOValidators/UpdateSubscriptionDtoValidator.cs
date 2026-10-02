@@ -15,42 +15,44 @@ namespace SubscriptionAPI.Validators.SubscriptionDTOValidators
 
             RuleFor(x => x.PlanPurchased)
                 .NotNull()
-                .WithMessage("'Plan Purchased' is required.")
+                .WithMessage(CONST_STRING.IsRequired)
                 .Must(x => x != null && x.Id != Guid.Empty)
-                .WithMessage("'Plan Purchased' must reference a persisted plan.")
+                .WithMessage(CONST_STRING.MustReferencePersistedPlan)
                 .When(x => x != null);
 
             RuleFor(x => x.PlanPurchased)
                 .MustAsync(async (plan, ct) => await PlanExistsAsync(plan, ct))
-                .WithMessage("The selected 'Plan Purchased' does not exist.")
+                .WithMessage(CONST_STRING.DoesNotExist)
                 .When(x => x.PlanPurchased != null && x.PlanPurchased.Id != Guid.Empty);
 
             RuleFor(x => x.PreviousPlan)
                 .Must(x => x == null || x.Id != Guid.Empty)
-                .WithMessage("'Previous Plan' must reference a persisted plan when supplied.");
+                .WithMessage(CONST_STRING.MustReferencePersistedPlanWhenSupplied);
 
             RuleFor(x => x.PreviousPlan)
                 .MustAsync(async (previousPlan, ct) => await PlanExistsAsync(previousPlan, ct))
-                .WithMessage("The selected 'Previous Plan' does not exist.")
+                .WithMessage(CONST_STRING.DoesNotExist)
                 .When(x => x.PreviousPlan != null && x.PreviousPlan.Id != Guid.Empty);
 
             RuleFor(x => x.UserEmail)
                 .NotEmpty()
-                .EmailAddress();
+                .WithMessage(CONST_STRING.IsRequired)
+                .EmailAddress()
+                .WithMessage(CONST_STRING.InvalidEmailAddress);
 
             RuleFor(x => x.StartDate)
                 .NotEqual(default(DateTimeOffset))
-                .WithMessage("'Start Date' must be a valid timestamp.");
+                .WithMessage(CONST_STRING.MustBeValidTimestamp);
 
             RuleFor(x => x.EndDate)
                 .NotEqual(default(DateTimeOffset))
-                .WithMessage("'End Date' must be a valid timestamp.")
+                .WithMessage(CONST_STRING.MustBeValidTimestamp)
                 .GreaterThan(x => x.StartDate)
-                .WithMessage("'End Date' must be later than 'Start Date'.");
+                .WithMessage(CONST_STRING.MustBeLaterThan);
 
             RuleFor(x => x.PlanPurchased)
                 .Must((dto, plan) => dto.PreviousPlan == null || plan == null || plan.Id != dto.PreviousPlan.Id)
-                .WithMessage("'Plan Purchased' must differ from 'Previous Plan'.")
+                .WithMessage(CONST_STRING.MustDifferFromPreviousPlan)
                 .When(x => x.PlanPurchased != null);
         }
 

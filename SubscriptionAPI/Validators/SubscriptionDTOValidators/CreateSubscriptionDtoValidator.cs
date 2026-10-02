@@ -15,29 +15,31 @@ namespace SubscriptionAPI.Validators.SubscriptionDTOValidators
 
             RuleFor(x => x.PlanPurchased)
                 .NotNull()
-                .WithMessage("'Plan Purchased' is required.")
+                .WithMessage(CONST_STRING.IsRequired)
                 .Must(x => x != null && x.Id != Guid.Empty)
-                .WithMessage("'Plan Purchased' must reference a persisted plan.")
+                .WithMessage(CONST_STRING.MustReferencePersistedPlan)
                 .When(x => x != null);
 
             RuleFor(x => x.PlanPurchased)
                 .MustAsync(async (plan, ct) => await PlanExistsAsync(plan, ct))
-                .WithMessage("The selected 'Plan Purchased' does not exist.")
+                .WithMessage(CONST_STRING.DoesNotExist)
                 .When(x => x.PlanPurchased != null && x.PlanPurchased.Id != Guid.Empty);
 
             RuleFor(x => x.UserEmail)
                 .NotEmpty()
-                .EmailAddress();
+                .WithMessage(CONST_STRING.IsRequired)
+                .EmailAddress()
+                .WithMessage(CONST_STRING.InvalidEmailAddress);
 
             RuleFor(x => x.StartDate)
                 .NotEqual(default(DateTimeOffset))
-                .WithMessage("'Start Date' must be a valid timestamp.");
+                .WithMessage(CONST_STRING.MustBeValidTimestamp);
 
             RuleFor(x => x.EndDate)
                 .NotEqual(default(DateTimeOffset))
-                .WithMessage("'End Date' must be a valid timestamp.")
+                .WithMessage(CONST_STRING.MustBeValidTimestamp)
                 .GreaterThan(x => x.StartDate)
-                .WithMessage("'End Date' must be later than 'Start Date'.");
+                .WithMessage(CONST_STRING.MustBeLaterThan);
         }
 
         private async Task<bool> PlanExistsAsync(Plan? plan, CancellationToken cancellationToken)

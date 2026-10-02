@@ -11,11 +11,11 @@ namespace SubscriptionAPI.Validators.PlanDTOValidators
 
             RuleFor(x => x.CreatedAt)
                 .NotEqual(default(DateTimeOffset))
-                .WithMessage("'Created At' must be a valid timestamp.");
+                .WithMessage(CONST_STRING.MustBeValidTimestamp);
 
             RuleFor(x => x.CreatedBy)
                 .NotNull()
-                .WithMessage("'Created By' is required.");
+                .WithMessage(CONST_STRING.IsRequired);
         }
     }
 }

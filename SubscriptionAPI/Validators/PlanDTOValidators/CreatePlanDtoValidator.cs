@@ -15,23 +15,31 @@ namespace SubscriptionAPI.Validators.PlanDTOValidators
 
             RuleFor(x => x.Title)
                 .NotEmpty()
-                .MaximumLength(200);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(200)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.Subtitle)
                 .NotEmpty()
-                .MaximumLength(500);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(500)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.PriceCardTitle)
                 .NotEmpty()
-                .MaximumLength(200);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(200)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.Version)
                 .NotEmpty()
-                .MaximumLength(50);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(50)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.Title)
                 .MustAsync(async (dto, title, ct) => !await PlanExistsAsync(dto, title, ct))
-                .WithMessage("A plan with the given 'Title' and 'Version' already exists.");
+                .WithMessage(CONST_STRING.PlanAlreadyExists);
         }
 
         private async Task<bool> PlanExistsAsync(CreatePlanDto dto, string title, CancellationToken cancellationToken)

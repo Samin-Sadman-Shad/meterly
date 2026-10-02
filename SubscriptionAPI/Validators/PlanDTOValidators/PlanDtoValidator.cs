@@ -9,15 +9,21 @@ namespace SubscriptionAPI.Validators.PlanDTOValidators
         {
             RuleFor(x => x.Title)
                 .NotEmpty()
-                .MaximumLength(200);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(200)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.Subtitle)
                 .NotEmpty()
-                .MaximumLength(500);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(500)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
 
             RuleFor(x => x.Version)
                 .NotEmpty()
-                .MaximumLength(50);
+                .WithMessage(CONST_STRING.IsRequired)
+                .MaximumLength(50)
+                .WithMessage(CONST_STRING.MaxLengthExceeded);
         }
     }
 }

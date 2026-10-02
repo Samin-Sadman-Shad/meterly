@@ -2,6 +2,7 @@ using FluentValidation;
 using SubscriptionAPI.Contracts.Repositories;
 using SubscriptionAPI.DTOs.PlanDTOs;
 using SubscriptionAPI.Models;
+using SubscriptionAPI.Validators;
 
 namespace SubscriptionAPI.Validators.PlanDTOValidators
 {
@@ -54,7 +55,7 @@ namespace SubscriptionAPI.Validators.PlanDTOValidators
                 CreatedBy = null!
             };
 
-            return await _planRepository.DoesExist(probe);
+            return await _planRepository.DoesExist(probe, cancellationToken);
         }
     }
 }

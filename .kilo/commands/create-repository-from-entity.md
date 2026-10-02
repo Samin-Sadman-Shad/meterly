@@ -19,4 +19,5 @@ Extract the values provided by the user for the following placeholders:
 6. The repository interface will be used by the service class or Handler class of MediatR package. The implementation will be addressed seperately by persistance layer or  different repository classes in repository folder
 7. the interfaces will be created inside *Contract/Persistance/* folder of that particular project
 8. The title of the interface would be *I{EntityClassName}Repository*
+9. Follow the best practice while declaring the repository method signature, use Cancellation token where needed
 

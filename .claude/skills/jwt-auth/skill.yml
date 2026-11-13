@@ -1,0 +1,96 @@
+---
+name: jwt-auth
+description: Architecture, endpoint workflows, domain rules, and reference scripts for JWT authentication with rotating refresh tokens and reuse detection.
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(dotnet new:*), Bash(dotnet sln:*), Bash(dotnet add:*), 
+              Bash(dotnet build:*), Bash(dotnet test:*), Bash(dotnet user-secrets:*), Bash(ls:*), Bash(mkdir:*)
+---
+
+# JWT Authentication & Rotating Refresh Token Skill
+
+Follow the layered architecture and exact endpoint execution sequences below. For .net core implementations, **Always read and follow the implementation patterns in `scripts/JwtAuthReference.cs` and `scripts/TokenReuseTests.cs`.**
+If you are implementing in another language, adapt the same layered architecture and endpoint workflows to your framework of choice. Follow a domain design for User, RefreshToken similar to the one defined in `scripts/User.cs` and `scripts/RefreshToken.cs` in your language.
+
+---
+
+## 1. Layered Architecture Rules
+1. **Controllers (`AuthController`):** Thin HTTP layer only. Inject `IAuthService`, delegate execution to service methods, write `HttpOnly` refresh cookies via `Response.Cookies`, and map results.
+2. **Orchestration Service (`AuthService : IAuthService`):** Implements all endpoint workflows 
+(`RegisterAsync`, `LoginAsync`, `RefreshTokenAsync`, `LogoutAsync`, `RevokeAllSessionsAsync`, `RevokeSessionsByFamilyId`, `ChangePasswordAsync`) and the centralized `IssueTokenAsync()` helper. Depends on `IRefreshTokenService`, `IUserService`, `IAccessTokenService`, and `ISecurityNotificationPublisher`.
+3. **Domain Services:**
+   - `IUserService`: Handles user lookups, password verification/rehashing via `IPasswordHasherAdapter<User>`, and password rule validation.
+   - `IRefreshTokenService`: Manages token creation, rotation, expiration checks, and family/user revocation via `IRefreshTokenRepository`. 
+      Don't repeat if any of these are already implemented as member method or in the IAuthService.
+   - `IAccessTokenService`: Generates signed JWT access tokens containing `UserId`, `Email`, and `Role` claims using `System.IdentityModel.Tokens.Jwt` (for C# implementations).
+4. **Repositories:** `IUserRepository<User>` and `IRefreshTokenRepository` encapsulate all Entity Framework Core database operations.
+5. **Domain Entities:** `RefreshToken` must expose `IsActive()`, `IsExpired()`, and `Revoke()` member methods. `User` must expose role properties compatible with ASP.NET Core `[Authorize(Roles = "...")]`.
+
+---
+
+## 2. Endpoint & Helper Execution Sequences
+
+### A. Centralized Helper: `IssueTokenAsync(User user, Guid familyId)`
+1. Invalidate any existing active/unused refresh tokens sharing the same `userId` and `familyId`.
+2. Generate a new cryptographically secure refresh token under `familyId`.
+3. Persist the new `RefreshToken` record to the database.
+4. Generate a short-lived JWT access token (`IAccessTokenService`) with user identity and role claims.
+5. Return a custom `AuthResponse` containing `RefreshToken` (to be written to `Set-Cookie` with `HttpOnly`, `Secure`, `SameSite`, and `Path = "/api/auth/refresh"`), `AccessToken`, and `UserData`.
+
+### B. Register Sequence (`POST /api/auth/register`)
+1. Validate user uniqueness (username/email) and hash the password via `IPasswordHasherAdapter<User>`.
+2. Generate a new `UserId` and persist the `User` entity.
+3. Generate an initial `FamilyId` (`Guid.NewGuid()`).
+4. Call `IssueTokenAsync(user, familyId)` to generate and persist the initial refresh token and JWT access token.
+5. Attach the refresh token to the `Set-Cookie` header (`HttpOnly`, `Secure`, `Path = "/api/auth/refresh"`) and return the access token and user data in the response body.
+
+### C. Login Sequence (`POST /api/auth/login`)
+1. Look up the user by username or email via `IUserService`. Return `401 Unauthorized` if not found.
+2. Verify the password hash using `IPasswordHasherAdapter<User>` (wrapping Identity `PasswordHasher<User>`). If `SuccessRehashNeeded` is returned, upgrade and save the rehashed password automatically. Return `401 Unauthorized` if verification fails.
+3. Generate a brand-new `FamilyId` (`Guid.NewGuid()`) for this device/session.
+4. Call `IssueTokenAsync(user, familyId)` to issue both tokens.
+5. Attach the refresh token to the `Set-Cookie` header (`HttpOnly`, `Secure`, `Path = "/api/auth/refresh"`) and return the access token and user data in the response body.
+
+### D. Refresh Token Rotation Sequence (`POST /api/auth/refresh`)
+1. **Read Cookie:** Read `refreshToken` from the incoming request cookies. Return `401 Unauthorized` if absent.
+2. **Lookup & Expiry Check:** Look up the token in the database. Return `401 Unauthorized` if the token is missing, revoked (`IsRevoked == true`), or expired (`IsExpired() == true`).
+3. **Reuse Detection & Alerting:** Check if `storedToken.IsUsed == true`. If already used:
+   - Revoke all refresh tokens sharing `storedToken.FamilyId` via `RevokeTokenByFamilyAsync(storedToken.FamilyId)`.
+   - Publish a breach notification event via `ISecurityNotificationPublisher` 
+    so other sessions/clients belonging to `storedToken.UserId` receive an alert from the message broker.
+   - Check if `ISecurityNotificationPublisher` is available for publishing token-reuse alerts to a message broker, if not, implement it in the orchestration service.
+   - create a message to be sent via message broker to the user indicating that a token reuse attempt was detected.
+    If there is no active session for the user, return a response with warning for the user and no refresh token.
+   - Return `401 Unauthorized`.
+4. **Rotate & Issue:** Mark the current refresh token as `IsUsed = true`, generate a new refresh token under the **same `FamilyId`**, save it to the database, and set it in the `Set-Cookie` header (`HttpOnly = true`, `Secure = true`, `SameSite`, `Path = "/api/auth/refresh"`).
+5. **Return Access Token:** Generate a new JWT access token and return it in the response body.
+
+### E. Logout Sequence (`POST /api/auth/logout`)
+1. Read `refreshToken` from the request cookie.
+2. If present, look up the token and revoke its session family (`RevokeTokenByFamilyAsync`).
+3. Delete/expire the `refreshToken` cookie on the response (`Path = "/api/auth/refresh"`).
+4. If there is any cache server used for session management, clear the cache for the revoked token family.
+   The cache should be accessed via `IRefreshTokenRepository` or a dedicated `ICacheService` to ensure that any cached session data is invalidated.
+
+### F. Revoke All Sessions Sequence (`POST /api/auth/revoke-all`) `[Authorize]`
+1. Extract the authenticated `UserId` from the JWT access token claims (`ClaimTypes.NameIdentifier`).
+2. Call `RevokeTokenByUserIdAsync(userId)` from `IRefreshTokenService` to revoke every active token family across all devices for that user.
+3. Clear the current `refreshToken` cookie.
+
+### G. Change Password Sequence (`POST /api/auth/change-password`) `[Authorize]`
+1. Extract `UserId` from the authenticated JWT access token claims and read `refreshToken` from the request cookie.
+2. **Authenticity Check:** Verify the user's current password hash via `IPasswordHasherAdapter<User>` using `userId`. Return `401 Unauthorized` if invalid.
+3. **Token State Check:** Retrieve the user's current refresh token and verify it exists, belongs to `userId`, is active (`IsActive()`), and is **unused** (`!IsUsed`). If it is already used or inactive, return `401 Unauthorized` (Session Expired / Compromised).
+4. **New Password Validation:** Evaluate the new password against the composable password rule builder expressions (length, uppercase, lowercase, digit, special character, non-identical to old password). Return `400 Bad Request` with rule errors if any fail.
+5. **Update & Rotate:** Hash and persist the new password, then call `IssueTokenAsync(user, currentToken.FamilyId)` to rotate both tokens.
+6. **Respond:** Write the new refresh token to the `Set-Cookie` header and return the new access token and user data in the response body.
+
+---
+
+## 3. Security & Testing Verification
+Verify the implementation against the reuse-detection flow in `scripts/TokenReuseTests.cs`:
+1. `UserA` on `LaptopA` logs in and receives `TokenA` (`FamilyId = laptopA`, `IsUsed = false`).
+2. `UserA` on `PhoneB` also has an active session with `FamilyId = phoneB`.
+3. Hacker steals `TokenA` while `IsUsed == false` and calls `/api/auth/refresh`.
+4. Server marks `TokenA` as `IsUsed = true` and issues `TokenB` (`FamilyId = laptopA`, `IsUsed = false`) to the hacker.
+5. After 10 minutes, `UserA`'s `LaptopA` sends `TokenA` to `/api/auth/refresh`.
+6. Server detects `TokenA.IsUsed == true`, triggers `RevokeTokenByFamilyAsync(laptopA)` (setting `IsRevoked = true` on both `TokenA` and `TokenB`), publishes a broker notification for `UserA`, and returns `401 Unauthorized`.
+7. Both the hacker and `UserA` on `LaptopA` have their sessions terminated and are forced to log in again, while `UserA`'s session on `PhoneB` (`FamilyId = phoneB`) remains active and unaffected.
